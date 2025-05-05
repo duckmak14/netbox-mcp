@@ -8,7 +8,7 @@ A powerful integration server that combines Netbox's network infrastructure mana
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/netbox-mcp.git
+git clone https://github.com/duckmak14/netbox-mcp.git
 cd netbox-mcp
 ```
 
@@ -40,7 +40,7 @@ python server.py
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/netbox-mcp.git
+git clone https://github.com/duckmak14/netbox-mcp.git
 cd netbox-mcp
 ```
 
