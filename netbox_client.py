@@ -10,8 +10,14 @@ from typing import Any, Dict, List, Optional, Union
 import requests
 from urllib.parse import urlencode
 import logging
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 # Configure logging
+# Configure logging to write to a file
+logging.basicConfig(
+    filename='log.txt',          # Log file name
+    level=logging.INFO,         # Minimum level to log
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 class NetBoxClientBase(abc.ABC):
     """
@@ -182,15 +188,14 @@ class NetBoxRestClient(NetBoxClientBase):
         """
         url = self._build_url(endpoint, id)
         # url = self._build_url_get(endpoint, id, params)
-        logging.info("GET request to URL: %s", url)
+        logging.info("GET request to URL in netbox: %s", url)
         response = self.session.get(url, params=params, verify=self.verify_ssl)
         # response = self.session.get(url, verify=self.verify_ssl)
         response.raise_for_status()
-        
         data = response.json()
-        if id is None and 'results' in data:
-            # Handle paginated results
-            return data['results']
+        # if id is None and 'results' in data:
+        #     # Handle paginated results
+        #     return data['results']
         return data
     
     def create(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:

@@ -1,0 +1,14 @@
+[
+    {
+        "name": "NetBox 45",
+        "url": "https://192.168.221.45",
+        "description": "NetBox instance for managing network infrastructure.",
+        "token": "47246f034af128bc8984967e28a766943d588f0a"
+   },
+   {
+        "name": "NetBox 54",
+        "url": "https://192.168.221.54",
+        "description": "NetBox instance for managing network infrastructure.",
+        "token": "47246f034af128bc8984967e28a766943d588f0a"
+   }
+]

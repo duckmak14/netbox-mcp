@@ -1,6 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 from netbox_client import NetBoxRestClient
 import os
+from typing import Dict, Optional
 from dotenv import load_dotenv
 # Load environment variables from a .env file
 load_dotenv()
@@ -90,14 +91,63 @@ NETBOX_OBJECT_TYPES = {
     # Wireless
     "wireless-lans": "wireless/wireless-lans",
     "wireless-lan-groups": "wireless/wireless-lan-groups",
-    "wireless-links": "wireless/wireless-links"
+    "wireless-links": "wireless/wireless-links",
+
+    # extras
+    "custom-links": "extras/custom-links",
+    "custom-fields": "extras/custom-fields",
+    "tags": "extras/tags",
+    "export-templates": "extras/export-templates",
+    "images-attachments": "extras/images-attachments",
+    "save-filters": "extras/save-filters",
+    "custom-field-choices": "extras/custom-field-choices",
+    "webhooks": "extras/webhooks",
+    "event-rules": "extras/event-rules",
+
+    # core
+    "data-sources": "core/data-sources",
+    "change-logs": "core/object-changes",
+    "jobs": "core/jobs",
+
 }
 
 mcp = FastMCP("NetBox", log_level="DEBUG")
 netbox = None
 
+@mcp.tool(name="get_count_objects", description="Count objects in NetBox based on their type and filters")
+def get_count_objects(object_type: str, filters:  Optional[Dict] = None):
+    """
+    Count objects in NetBox based on their type and filters.
+    
+    Args:
+        object_type: String representing the NetBox object type (e.g. "devices", "ip-addresses")
+        filters: dict of filters to apply to the API call based on the NetBox API filtering options
+    
+    Returns:
+        Integer count of matching objects
+    """
+    # Validate object_type exists in mapping
+    if object_type not in NETBOX_OBJECT_TYPES:
+        valid_types = "\n".join(f"- {t}" for t in sorted(NETBOX_OBJECT_TYPES.keys()))
+        raise ValueError(f"Invalid object_type. Must be one of:\n{valid_types}")
+        
+    # Get API endpoint from mapping
+    endpoint = NETBOX_OBJECT_TYPES[object_type]
+    
+    logging.info(f"Counting objects from endpoint: {endpoint} with filters: {filters}")
+    
+    # Make API call with count=True
+    try:
+        response = netbox.get(endpoint, params=filters)
+        logging.info(f"Response from NetBox: {response}")
+    except Exception as e:
+        logging.error(f"Error fetching count for {object_type}: {str(e)}")
+        return 0
+        
+    return response["count"]
+
 @mcp.tool(name="get_objects", description="Get objects from NetBox based on their type and filters")
-def get_objects(object_type: str, filters: dict):
+def get_objects(object_type: str, filters:  Optional[Dict] = None):
     """
     Get objects from NetBox based on their type and filters
     Args:
@@ -186,6 +236,22 @@ def get_objects(object_type: str, filters: dict):
     - wireless-lans
     - wireless-lan-groups
     - wireless-links
+
+    Extras:
+    - custom-links
+    - custom-fields
+    - tags
+    - export-templates
+    - images-attachments
+    - save-filters
+    - custom-field-choices
+    - webhooks
+    - event-rules
+
+    Core:
+    - data-sources
+    - change-logs
+    - jobs
     
     See NetBox API documentation for filtering options for each object type.
     """
@@ -222,6 +288,45 @@ def get_object_by_id(object_type: str, object_id: int):
     endpoint = f"{NETBOX_OBJECT_TYPES[object_type]}/{object_id}"
     
     return netbox.get(endpoint)
+
+@mcp.tool(name="get_custom_fields", description="Retrieve custom fields for NetBox objects")
+def get_custom_fields(object_type: str, filters: dict):
+    """
+    Retrieve custom fields for NetBox objects.
+
+    Returns:
+        List of custom field definitions including:
+        - id: Unique identifier of the custom field
+        - name: Name of the custom field
+        - label: Human-readable label for the field
+        - type: Data type of the field (e.g., text, integer, choice)
+        - choices: List of choices if applicable
+    """
+    if object_type not in NETBOX_OBJECT_TYPES:
+        valid_types = "\n".join(f"- {t}" for t in sorted(NETBOX_OBJECT_TYPES.keys()))
+        raise ValueError(f"Invalid object_type. Must be one of:\n{valid_types}")
+        
+    # Get API endpoint from mapping
+    endpoint = NETBOX_OBJECT_TYPES[object_type]
+    # Make API call
+    response = netbox.get(endpoint, params=filters)
+    try:
+        custom_fields = [
+            {
+                "id": item["id"],
+                "name": item["name"],
+                "object_types": item["object_types"],
+                "label": item["label"],
+                "description": item["description"]
+            }
+            for item in response
+        ]
+        print(custom_fields)
+        return custom_fields 
+    except Exception as e:
+        logging.error(f"Error fetching custom fields: {str(e)}")
+        return None
+        
 
 @mcp.tool(name="get_changelogs", description="Get object change records (changelogs) from NetBox")
 def get_changelogs(filters: dict):
@@ -365,10 +470,10 @@ def delete_object(object_type: str, object_id: int):
     endpoint = f"{NETBOX_OBJECT_TYPES[object_type]}"
     
     # Make API call to delete object
-    return netbox.delete(endpoint)
+    return netbox.delete(endpoint, id=object_id)
 
 @mcp.prompt(
-    name="netbox_mcp",
+    name="netbox-mcp",
     description="NetBox MCP (Multi-Channel Protocol) server for managing NetBox objects",
 )
 def netbox_mcp():
@@ -424,7 +529,7 @@ def netbox_mcp():
     - Wireless: wireless-lans, wireless-links, etc.
     
     Example Usage:
-    0. To get devices on netbox with Year of investment in 3/2022:
+    1. To get devices on netbox with Year of investment in 3/2022:
         # First, search for devices with the "Year of investment" field
         devices = get_objects("devices", {"cf_year_of_investment": 3/2022})
        
@@ -435,7 +540,7 @@ def netbox_mcp():
         # Returns the list of matching devices
         return devices
     
-    1. To get all devices in a site:
+    2. To get all devices in a site:
         # First, find the site by name
         site = get_objects("sites", {"name": "site-name"})
 
@@ -445,7 +550,7 @@ def netbox_mcp():
         # Returns the list of devices in the specified site
         return devices 
 
-    2. To get devices with Year of investment in 3/2022:
+    3. To get devices with Year of investment in 3/2022:
         # First, search for devices with the "Year of investment" field
         devices = get_objects("devices", {"cf_year_of_investment": 3/2022})
        
@@ -455,11 +560,15 @@ def netbox_mcp():
         
         # Returns the list of matching devices
         return devices
-    
-    3. To get a specific device:
+
+    4. To get list devices on netbox:
+        devices = get_objects("devices", {})
+        return devices
+
+    5. To get a specific device:
         get_object_by_id("devices", 123)
-    
-    4. To create a new device:
+
+    6. To create a new device:
         create_object("devices", {
             "name": "router1",
             "device_type": 1,
@@ -468,7 +577,7 @@ def netbox_mcp():
             "status": "active"
         })
     
-    5. To update a device:
+    7. To update a device:
         # First, find the device by name
         devices = get_objects("devices", {"name": "router1"})
         
@@ -485,20 +594,16 @@ def netbox_mcp():
         else:
             print("No device found with name 'router1'")
       
-    6. To delete a device:
+    8. To delete a device:
         delete_object("devices", 123)
     
-    7. To view changes:
+    9. To view changes:
         get_changelogs({
             "changed_object_type": "dcim.device",
             "changed_object_id": 123
         })
-
-    8. To get all devices in NetBox:
-        devices = get_objects("devices", {})
-        total_devices = devices["count"]
-        return total_devices
     
+        
     Remember to:
     - Always validate object types before making requests
     - Check required fields for object creation
@@ -508,17 +613,31 @@ def netbox_mcp():
     
     """
 
-@mcp.prompt(
-    name="sample-prompt",
-    description="Sample prompt for testing",
-)
+@mcp.prompt(name="netbox_prompt_get_count_objects", description="Count objects in NetBox based on their type and filters")
+def netbox_prompt_get_count_objects():
+    return """
+    Use the `get_count_objects` tool to count objects in NetBox based on their type and filters.
+    
+    Example:
+    To count devices with a specific custom field:
+    count = get_count_objects("devices", {"cf_year_of_investment": "3/2022"})
+    return Netbox has {count} devices with Year of investment in 3/2022.
 
-def sample_prompt():
-    """
-    Sample prompt for testing
-    """
-    return "This is a sample prompt"
+    To how many devices are in NetBox:
+    count = get_count_objects("devices", {})
+    return Netbox has {count} devices.
 
+    Valid object types include:
+    - devices
+    - ip-addresses
+    - vlans
+    - prefixes
+    - sites
+    - racks
+    - etc.
+    
+    See the documentation for a full list of supported object types and filtering options.
+    """
 if __name__ == "__main__":
     # Load NetBox configuration from environment variables
     netbox_url = os.getenv("NETBOX_URL")
@@ -530,5 +649,5 @@ if __name__ == "__main__":
     # Initialize NetBox client
     netbox = NetBoxRestClient(url=netbox_url, token=netbox_token)
     
-    #mcp.run(transport="stdio")
+   #mcp.run(transport="stdio")
     mcp.run(transport="sse")
