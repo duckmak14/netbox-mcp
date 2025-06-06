@@ -159,17 +159,29 @@ class NetBoxRestClient(NetBoxClientBase):
             return f"{self.api_url}/{endpoint}/{id}/"
         return f"{self.api_url}/{endpoint}/"
     
-    def _build_url_get(self, endpoint: str, id: Optional[int] = None,  params: Optional[Dict[str, Any]] = None) -> str:
-        """Build the full URL for an API request."""
-        endpoint = endpoint.strip('/')
-
-        if id is not None:
-            return f"{self.api_url}/{endpoint}/{id}/"
-        if params:
-            query_string = urlencode(params)
-            return f"{self.api_url}/{endpoint}/?{query_string}"
-        return f"{self.api_url}/{endpoint}/"
-
+    def get_count(self, endpoint: str, id: Optional[int] = None, params: Optional[Dict[str, Any]] = None) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """
+        Retrieve the count of objects from NetBox via the REST API.
+        
+        Args:
+            endpoint: The API endpoint (e.g., 'dcim/sites', 'ipam/prefixes')
+            id: Optional ID to retrieve a specific object (not applicable for count)
+            params: Optional query parameters for filtering
+            
+        Returns:
+            A dictionary containing the count of objects
+        
+        Raises:
+            requests.HTTPError: If the request fails
+        """
+        url = self._build_url(endpoint, id)
+        logging.info("GET count object to URL in netbox: %s", url)
+        logging.info(f"GET count object to params: {params}")
+        response = self.session.get(url, params=params, verify=self.verify_ssl)
+        # response = self.session.get(url, verify=self.verify_ssl)
+        response.raise_for_status()
+        data = response.json()
+        return data
     
     def get(self, endpoint: str, id: Optional[int] = None, params: Optional[Dict[str, Any]] = None) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
@@ -187,15 +199,15 @@ class NetBoxRestClient(NetBoxClientBase):
             requests.HTTPError: If the request fails
         """
         url = self._build_url(endpoint, id)
-        # url = self._build_url_get(endpoint, id, params)
         logging.info("GET request to URL in netbox: %s", url)
+        logging.info(f"GET request to params: {params}")
         response = self.session.get(url, params=params, verify=self.verify_ssl)
         # response = self.session.get(url, verify=self.verify_ssl)
         response.raise_for_status()
         data = response.json()
-        # if id is None and 'results' in data:
-        #     # Handle paginated results
-        #     return data['results']
+        if id is None and 'results' in data:
+            # Handle paginated results
+            return data['results']
         return data
     
     def create(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
