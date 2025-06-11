@@ -537,17 +537,35 @@ def netbox_mcp():
     - Wireless: wireless-lans, wireless-links, etc.
     
     Example Usage:
-    1. To get list devices on netbox with Year of investment in 3/2022:
-        # First, search for devices with the "Year of investment" field
-        devices = get_objects("devices", {"cf_year_of_investment": 3/2022})
-       
-        # If no devices are found, search for devices with a custom field "Year of investment"
-        if not devices:
-            devices = get_objects("devices", {"year_of_investment": 3/2022})
+    1. To get percentage of space in the rack named H01 in site named HCM:
+        # Note: vietnamese prompts is "Phần trăm không gian còn trống trong giá H01 tại site HCM"
+        # First, find the site by name
+        site = get_objects("sites", {"name": "HCM"})
+        if not site:
+            raise ValueError("No site found with name 'HCM'")
+        # Second, find the rack by name in that site
+        racks = get_objects("racks", {"name": "H01", "site_id": site[0]["id"]})
+        if not racks:
+            raise ValueError("No rack found with name 'H01' in site 'HCM'")
         
-        # Returns the list of matching devices
-        return devices
-    
+        rack_height = racks[0].get("u_height", 42)  # Default to 42U if not specified
+        # Thrid, get list device in that rack:
+        devices = get_objects("devices", {"rack_id": racks[0]["id"]})
+        if not devices:
+            return "Rack H01 in site HCM free space is 100%"
+        
+        # Calculate total used space in the rack is total u_height of all devices in the rack
+        total_u_height = 0
+        for device in devices:
+            # get device_type form device
+            device_type = get_object_by_id("device-types", device["device_type"]["id"])
+            # get u_height from device_type
+            u_height = device_type.get("u_height", 1)  # Default to 1 if not specified
+            # Add u_height to total used space
+            total_u_height += u_height
+        
+        percentage_free_space = ((rack_height - total_u_height) / rack_height) * 100
+        return f"Rack H01 in site HCM free space is {percentage_free_space:.2f}%"    
     2. To get list devices in a site:
         # First, find the site by name
         site = get_objects("sites", {"name": "site-name"})
@@ -558,15 +576,14 @@ def netbox_mcp():
         # Returns the list of devices in the specified site
         return devices 
 
-    3. To get list devices with Year of investment in 3/2022:
-        # First, search for devices with the "Year of investment" field
-        devices = get_objects("devices", {"cf_year_of_investment": 3/2022})
-       
-        # If no devices are found, search for devices with a custom field "Year of investment"
-        if not devices:
-            devices = get_objects("devices", {"year_of_investment": 3/2022})
+    3. To get list devices in a rack:
+        # First, find the rack by name
+        rack = get_objects("racks", {"name": "rack-name"})
         
-        # Returns the list of matching devices
+        # Then, get devices in that rack
+        devices = get_objects("devices", {"rack_id": rack[0]["id"]})
+        
+        # Returns the list of devices in the specified rack
         return devices
 
     4. To get list devices on netbox:
